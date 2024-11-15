@@ -1,0 +1,170 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+#include "pico/cyw43_arch.h"
+#include "lwip/apps/mqtt.h"
+#include "lwip/ip4_addr.h"
+
+// I2C address for the SCD41 sensor
+#define SCD41_ADDR 0x62
+#define MQTT_BROKER_IP "5.196.78.28"
+#define MQTT_TOPIC_PUBLISH "pico/scd41/data"       // Topic for publishing sensor data
+#define MQTT_TOPIC_SUBSCRIBE "pico/scd41/control"  // Topic for receiving control messages
+#define MQTT_PORT 1883
+
+bool is_reading = false; // Flag to control sensor reading state
+
+// Function to initialize I2C communication
+void i2c_init_pico() {
+    printf("Initializing I2C...\n");
+    i2c_init(i2c0, 100 * 1000);
+    gpio_set_function(0, GPIO_FUNC_I2C);
+    gpio_set_function(1, GPIO_FUNC_I2C);
+    gpio_pull_up(0);
+    gpio_pull_up(1);
+    printf("I2C Initialized.\n");
+}
+
+// Function to connect to Wi-Fi
+void connect_wifi() {
+    printf("Initializing Wi-Fi module...\n");
+    if (cyw43_arch_init() != 0) {
+        printf("Failed to initialize Wi-Fi module.\n");
+        return;
+    }
+
+    cyw43_arch_enable_sta_mode();
+    printf("Connecting to Wi-Fi...\n");
+
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 60000)) {
+        printf("Failed to connect to Wi-Fi.\n");
+    } else {
+        printf("Connected to Wi-Fi.\n");
+    }
+}
+
+// Callback for incoming control messages
+void mqtt_incoming_publish_cb(void *arg, const char *topic, uint32_t tot_len) {
+    printf("Received MQTT message on topic: %s, length: %d\n", topic, tot_len);
+}
+
+// Callback for incoming data fragments
+void mqtt_incoming_data_cb(void *arg, const uint8_t *data, uint16_t len, uint8_t flags) {
+    if (data != NULL) {
+        char message[len + 1];
+        strncpy(message, (const char *)data, len);
+        message[len] = '\0';  // Null-terminate the message
+        printf("Message received: %s\n", message);
+
+        // Check if the received message is a "START" or "STOP" command
+        if (strcmp(message, "START") == 0) {
+            is_reading = true;
+            printf("Command received: START. Sensor reading started.\n");
+        } else if (strcmp(message, "STOP") == 0) {
+            is_reading = false;
+            printf("Command received: STOP. Sensor reading stopped.\n");
+        } else {
+            printf("Unknown command received: %s\n", message);
+        }
+    }
+}
+
+// MQTT connection callback to handle connection status
+void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
+    if (status == MQTT_CONNECT_ACCEPTED) {
+        printf("Successfully connected to MQTT broker.\n");
+
+        // Set up the incoming publish callback
+        mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, client);
+
+        // Subscribe to control topic
+        mqtt_subscribe(client, MQTT_TOPIC_SUBSCRIBE, 0, NULL, client);
+        printf("Subscribed to control topic: %s\n", MQTT_TOPIC_SUBSCRIBE);
+    } else {
+        printf("MQTT connection failed with status: %d\n", status);
+    }
+}
+
+// Function to publish sensor data to the MQTT broker
+void publish_data(mqtt_client_t *client, uint16_t co2, float temperature, float humidity) {
+    char payload[128];
+    snprintf(payload, sizeof(payload), "{\"co2\": %d, \"temperature\": %.2f, \"humidity\": %.2f}", co2, temperature, humidity);
+    printf("Publishing data: %s\n", payload);
+    
+    err_t err = mqtt_publish(client, MQTT_TOPIC_PUBLISH, payload, strlen(payload), 0, 0, NULL, NULL);
+    if (err == ERR_OK) {
+        printf("Data published successfully.\n");
+    } else {
+        printf("Failed to publish data. Error code: %d\n", err);
+    }
+}
+
+// Function to read data from the sensor
+void read_co2_data(mqtt_client_t *client) {
+    printf("Starting data read from sensor...\n");
+
+    // Command to start measurement readout
+    uint8_t command[2] = {0xEC, 0x05};
+    i2c_write_blocking(i2c0, SCD41_ADDR, command, sizeof(command), true);
+    sleep_ms(500);  // Wait for data to be ready
+
+    uint8_t data[6];
+    i2c_read_blocking(i2c0, SCD41_ADDR, data, sizeof(data), false);
+
+    // Combine bytes into meaningful values
+    uint16_t co2_concentration = (data[0] << 8) | data[1];
+    uint16_t temperature = (data[3] << 8) | data[4];
+    uint16_t humidity = (data[5] << 8) | data[6];
+
+    printf("Data read: CO2 = %d ppm, Temp = %.2f C, Humidity = %.2f %%\n",
+           co2_concentration, temperature / 100.0, humidity / 100.0);
+
+    // Publish data
+    publish_data(client, co2_concentration, temperature / 100.0, humidity / 100.0);
+    printf("Data has been published to MQTT broker.\n");
+}
+
+// Function to connect to the MQTT broker
+void connect_to_mqtt_broker(mqtt_client_t *client) {
+    printf("Connecting to MQTT broker...\n");
+    struct mqtt_connect_client_info_t client_info = {
+        .client_id = "pico_w_sensor",
+    };
+
+    ip4_addr_t broker_ip;
+    if (!ip4addr_aton(MQTT_BROKER_IP, &broker_ip)) {
+        printf("Failed to convert MQTT broker IP address.\n");
+        return;
+    }
+
+    mqtt_client_connect(client, &broker_ip, MQTT_PORT, mqtt_connection_cb, NULL, &client_info);
+    printf("MQTT connection initiated.\n");
+}
+
+int main() {
+    stdio_init_all();
+    printf("Starting program...\n");
+
+    sleep_ms(10000);  // Wait for USB connection to establish
+
+    i2c_init_pico(); // Initialize I2C communication
+    connect_wifi(); // Connect to Wi-Fi
+
+    mqtt_client_t *client = mqtt_client_new();
+    connect_to_mqtt_broker(client);
+
+    while (true) {
+        if (is_reading) {
+            printf("Sensor reading is active. Reading data...\n");
+            read_co2_data(client); // Read and publish data
+        } else {
+            printf("Sensor is in standby mode. Waiting for START command.\n");
+        }
+
+        sleep_ms(10000);  // Wait 10 seconds before the next loop iteration
+    }
+
+    return 0;
+}

@@ -1,0 +1,58 @@
+{
+    "configurations": [
+        {
+            "name": "Pico",
+            "includePath": [
+                "/Users/apollo/Documents/embeddedSystem/project/**",
+                // "/Users/apollo/Library/Mobile Documents/com~apple~CloudDocs/Documents/embeddedSystem/project/**",
+                "/Users/apollo/.pico-sdk/sdk/2.0.0/**",
+                "/Users/apollo/.pico-sdk/sdk/2.0.0/src/rp2_common/pico_cyw43_arch/include",
+                "/Users/apollo/Documents/embeddedSystem/project/include"
+            ],
+            "forcedInclude": [
+                "/Users/apollo/.pico-sdk/sdk/2.0.0/src/common/pico_base_headers/include/pico.h",
+                // "/Users/apollo/Library/Mobile Documents/com~apple~CloudDocs/Documents/embeddedSystem/project/build/generated/pico_base/pico/config_autogen.h"
+                "/Users/apollo/Documents/embeddedSystem/project/build/generated/pico_base/pico/config_autogen.h"
+            ],
+            "defines": [],
+            "compilerPath": "/Users/apollo/.pico-sdk/sdk/2.0.0/cmake/preload/toolchains/pico_arm_cortex_m0plus_gcc.cmake ",
+            "compileCommands": "/Users/apollo/Documents/embeddedSystem/project/build/compile_commands.json",
+            // "compileCommands":"/Users/apollo/Library/Mobile Documents/com~apple~CloudDocs/Documents/embeddedSystem/project/build/compile_commands.json",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-arm64",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compilerPathInCppPropertiesJson": "${userHome}/.pico-sdk/toolchain/13_2_Rel1/bin/arm-none-eabi-gcc",
+            "compileCommandsInCppPropertiesJson": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProviderInCppPropertiesJson": "ms-vscode.cmake-tools",
+            "mergeConfigurations": false,
+            "browse": {
+                "path": [
+                    "/Users/apollo/Documents/embeddedSystem/project/**",
+                    // "/Users/apollo/Library/Mobile Documents/com~apple~CloudDocs/Documents/embeddedSystem/project/**",
+                    "/Users/apollo/.pico-sdk/sdk/2.0.0/**",
+                    "/Users/apollo/.pico-sdk/sdk/2.0.0/src/rp2_common/pico_cyw43_arch/include",
+                    "/Users/apollo/Documents/embeddedSystem/project/include",
+                    // "/Users/apollo/Library/Mobile Documents/com~apple~CloudDocs/Documents/embeddedSystem/project/include",
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        },
+        {
+            "name": "pico_co2sensor",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64"
+        }
+    ],
+    "version": 4
+}

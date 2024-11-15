@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "sensirion_i2c_hal.h": "c",
+        "mqtt.h": "c",
+        "ip4_addr.h": "c",
+        "spectrometer.h": "c",
+        "co2sensor.h": "c",
+        "cstdint": "c"
+    }
+}
